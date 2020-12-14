@@ -23,8 +23,7 @@ namespace TweetsCook
                     Args = new[] { "--no-sandbox", "--window-size=1920,1080" },
                     Headless = false,
                     DefaultViewport = null,
-                    //ExecutablePath = @"/usr/bin/chromium"
-                    ExecutablePath = @"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
+                    ExecutablePath = Config.Chrome
                 });
                 const string JS = @"(translation, by) => {
 const tweet = document.querySelector('article div:nth-child(3) div[lang]').parentElement;

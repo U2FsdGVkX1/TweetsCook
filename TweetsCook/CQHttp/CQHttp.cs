@@ -18,7 +18,7 @@ namespace TweetsCook
         private readonly int User;
 
         private ClientWebSocket WebSocket = new ClientWebSocket();
-        private Dictionary<string, TaskCompletionSource<string>> Results = new Dictionary<string, TaskCompletionSource<string>>();
+        private Dictionary<string, TaskCompletionSource<JObject>> Results = new Dictionary<string, TaskCompletionSource<JObject>>();
 
         public delegate void MessageEvent(Response.Reply original, string translation);
         public event MessageEvent OnTranslate = null;
@@ -27,12 +27,12 @@ namespace TweetsCook
             WebSocketUri = new Uri(webSocketUri);
             User = user;
         }
-        private async Task<R> CQApi<P, R>(string action, P p)
+        private async Task<R> CQApi<R>(string action, object p)
         {
             var echo = Guid.NewGuid().ToString();
-            Results[echo] = new TaskCompletionSource<string>();
+            Results[echo] = new TaskCompletionSource<JObject>();
 
-            var json = JsonConvert.SerializeObject(new Request.Model<P>()
+            var json = JsonConvert.SerializeObject(new Request.Model<object>()
             {
                 action = action,
                 p = p,
@@ -41,13 +41,13 @@ namespace TweetsCook
             byte[] data = Encoding.UTF8.GetBytes(json);
             await WebSocket.SendAsync(data, WebSocketMessageType.Text, true, CancellationToken.None);
 
-            string result = Results[echo].Task.Result;
+            var result = Results[echo].Task.Result;
             Results.Remove(echo);
-            return JsonConvert.DeserializeObject<Response.Model<R>>(result).data;
+            return (result.ToObject<Response.Model<R>>()).data;
         }
         public async Task<Response.Message> Send(string text)
         {
-            return await CQApi<Request.Message, Response.Message>("send_group_msg", new Request.Message
+            return await CQApi<Response.Message>("send_group_msg", new Request.Message
             {
                 group_id = User,
                 message = text
@@ -55,7 +55,7 @@ namespace TweetsCook
         }
         public async Task<Response.Reply> GetReply(int message_id)
         {
-            return await CQApi<Request.Reply, Response.Reply>("get_msg", new Request.Reply
+            return await CQApi<Response.Reply>("get_msg", new Request.Reply
             {
                 message_id = message_id
             });
@@ -86,8 +86,8 @@ namespace TweetsCook
 
                 } else if (deserialize.ContainsKey("echo"))
                 {
-                    var echo = deserialize.ToObject<Response.Model<object>>().echo;
-                    Results[echo].SetResult(text);
+                    var echo = deserialize.Value<string>("echo");
+                    Results[echo].SetResult(deserialize);
                 }
                 Console.WriteLine(Encoding.UTF8.GetString(data));
             };
