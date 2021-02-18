@@ -8,5 +8,6 @@ namespace TweetsCook.Event
     {
         public string post_type;
         public string message;
+        public int group_id;
     }
 }

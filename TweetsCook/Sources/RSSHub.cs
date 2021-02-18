@@ -45,7 +45,6 @@ namespace TweetsCook.Sources
                     }
                 }
 
-                Console.WriteLine(time);
                 await Task.Delay(1000 * 60);
             }
         }

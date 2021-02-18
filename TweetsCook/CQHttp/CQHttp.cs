@@ -15,17 +15,15 @@ namespace TweetsCook
     partial class CQHttp
     {
         private readonly Uri WebSocketUri;
-        private readonly int User;
 
         private ClientWebSocket WebSocket = new ClientWebSocket();
         private Dictionary<string, TaskCompletionSource<JObject>> Results = new Dictionary<string, TaskCompletionSource<JObject>>();
 
-        public delegate void MessageEvent(Response.Reply original, string translation);
+        public delegate void MessageEvent(int group_id, string url, string translation);
         public event MessageEvent OnTranslate = null;
-        public CQHttp(string webSocketUri, int user)
+        public CQHttp(string webSocketUri)
         {
             WebSocketUri = new Uri(webSocketUri);
-            User = user;
         }
         private async Task<R> CQApi<R>(string action, object p)
         {
@@ -45,11 +43,11 @@ namespace TweetsCook
             Results.Remove(echo);
             return (result.ToObject<Response.Model<R>>()).data;
         }
-        public async Task<Response.Message> Send(string text)
+        public async Task<Response.Message> Send(int group_id, string text)
         {
             return await CQApi<Response.Message>("send_group_msg", new Request.Message
             {
-                group_id = User,
+                group_id = group_id,
                 message = text
             });
         }
@@ -62,6 +60,7 @@ namespace TweetsCook
         }
         public async void Start()
         {
+            var regex = new Regex(@"原推地址：(.+)", RegexOptions.Compiled);
             await WebSocket.ConnectAsync(WebSocketUri, CancellationToken.None);
             while(true)
             {
@@ -75,21 +74,38 @@ namespace TweetsCook
                 {
                     var _ = Task.Run(() =>
                     {
+                        var translation = "";
                         var message = deserialize.ToObject<Event.Message>();
                         var replyId = Regex.Match(message.message, @"\[CQ:reply,id=(-?\d+)\]");
-                        var translation = Regex.Replace(message.message, @"\[CQ:.+?\]", "");
-                        if (!replyId.Success) return;
-
-                        var replyMessage = GetReply(int.Parse(replyId.Groups[1].Value)).Result;
-                        OnTranslate(replyMessage, translation);
+                        if (replyId.Success)
+                        {
+                            translation = Regex.Replace(message.message, @"\[CQ:.+?\]", "");
+                            try
+                            {
+                                var replyMessage = GetReply(int.Parse(replyId.Groups[1].Value)).Result;
+                                message.message = replyMessage.message;
+                            }
+                            catch
+                            {
+                                return;
+                            }
+                        }
+                        else
+                        {
+                            translation = regex.Replace(message.message, "").Trim();
+                        }
+                        
+                        var twitterUrl = regex.Match(message.message);
+                        if (!twitterUrl.Success) return;
+                        OnTranslate(message.group_id, twitterUrl.Groups[1].Value, translation);
                     });
 
-                } else if (deserialize.ContainsKey("echo"))
+                }
+                else if (deserialize.ContainsKey("echo"))
                 {
                     var echo = deserialize.Value<string>("echo");
                     Results[echo].SetResult(deserialize);
                 }
-                Console.WriteLine(Encoding.UTF8.GetString(data));
             };
         }
     }
