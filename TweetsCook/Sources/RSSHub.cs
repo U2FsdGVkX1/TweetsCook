@@ -9,15 +9,15 @@ using System.ComponentModel;
 
 namespace TweetsCook.Sources
 {
-    partial class RSSHub : Base
+    partial class RSSHub : ISource
     {
-        public delegate void RSSEvent(RSS rss);
-        public event RSSEvent OnMessage;
-        public RSSHub(string SourceUri) : base(SourceUri)
+        private readonly Uri SourceUri;
+        public event EventHandler<RSS> NewMessage;
+        public RSSHub(string sourceUri)
         {
-
+            SourceUri = new Uri(sourceUri);
         }
-        public override async void Start()
+        public async void Start()
         {
             using var httpClient = new HttpClient();
             List<RSS> items;
@@ -41,7 +41,7 @@ namespace TweetsCook.Sources
                 {
                     foreach (var item in items)
                     {
-                        OnMessage(item);
+                        NewMessage.Invoke(this, item);
                     }
                 }
 

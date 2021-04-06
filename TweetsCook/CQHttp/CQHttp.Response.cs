@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace TweetsCook.Response
+﻿namespace TweetsCook.CQHttp.Response
 {
     partial class Message
     {

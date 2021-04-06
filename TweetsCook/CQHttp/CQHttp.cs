@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -9,19 +7,18 @@ using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using TweetsCook.CQHttp.Model;
 
-namespace TweetsCook
+namespace TweetsCook.CQHttp
 {
-    partial class CQHttp
+    partial class CQClient
     {
         private readonly Uri WebSocketUri;
+        private readonly ClientWebSocket WebSocket = new();
+        private readonly Dictionary<string, TaskCompletionSource<JObject>> Results = new();
 
-        private ClientWebSocket WebSocket = new ClientWebSocket();
-        private Dictionary<string, TaskCompletionSource<JObject>> Results = new Dictionary<string, TaskCompletionSource<JObject>>();
-
-        public delegate void MessageEvent(int group_id, string url, string translation);
-        public event MessageEvent OnTranslate = null;
-        public CQHttp(string webSocketUri)
+        public event EventHandler<Translate> Translate;
+        public CQClient(string webSocketUri)
         {
             WebSocketUri = new Uri(webSocketUri);
         }
@@ -97,13 +94,18 @@ namespace TweetsCook
                         
                         var twitterUrl = regex.Match(message.message);
                         if (!twitterUrl.Success) return;
-                        OnTranslate(message.group_id, twitterUrl.Groups[1].Value, translation);
+                        Translate.Invoke(this, new()
+                        {
+                            group_id = message.group_id,
+                            url = twitterUrl.Groups[1].Value,
+                            translation = translation
+                        });
                     });
 
                 }
                 else if (deserialize.ContainsKey("echo"))
                 {
-                    var echo = deserialize.Value<string>("echo");
+                    var echo = deserialize["echo"].Value<string>();
                     Results[echo].SetResult(deserialize);
                 }
             };

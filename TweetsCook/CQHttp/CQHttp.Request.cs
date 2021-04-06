@@ -1,9 +1,6 @@
 ﻿using Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
-namespace TweetsCook.Request
+namespace TweetsCook.CQHttp.Request
 {
     partial class Message
     {
